@@ -8,7 +8,8 @@ import type {
   Template,
 } from '@/types';
 
-const KAPSO_API_BASE = 'https://app.kapso.ai/api/v1';
+const KAPSO_PLATFORM_API_BASE = 'https://api.kapso.ai/platform/v1';
+const KAPSO_META_WHATSAPP_API_BASE = 'https://api.kapso.ai/meta/whatsapp/v23.0';
 
 if (!process.env.KAPSO_API_KEY) {
   throw new Error('KAPSO_API_KEY is not set');
@@ -18,6 +19,7 @@ type KapsoApiOptions<T = unknown> = {
   method?: 'GET' | 'POST' | 'PUT' | 'DELETE';
   body?: T;
   params?: Record<string, string | number>;
+  apiBase?: 'platform' | 'meta';
 };
 
 type ApiResponse<T> = {
@@ -33,9 +35,10 @@ async function kapsoFetch<T = unknown, B = unknown>(
   endpoint: string,
   options: KapsoApiOptions<B> = {}
 ): Promise<T> {
-  const { method = 'GET', body, params } = options;
+  const { method = 'GET', body, params, apiBase = 'platform' } = options;
 
-  let url = `${KAPSO_API_BASE}${endpoint}`;
+  const baseUrl = apiBase === 'meta' ? KAPSO_META_WHATSAPP_API_BASE : KAPSO_PLATFORM_API_BASE;
+  let url = `${baseUrl}${endpoint}`;
 
   if (params) {
     const queryString = new URLSearchParams(
@@ -61,7 +64,15 @@ async function kapsoFetch<T = unknown, B = unknown>(
   });
 
   if (!response.ok) {
-    const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+    const responseText = await response.text();
+
+    let errorData;
+    try {
+      errorData = JSON.parse(responseText);
+    } catch {
+      errorData = { error: 'Unknown error' };
+    }
+
     throw new Error(errorData.error || `API request failed with status ${response.status}`);
   }
 
@@ -71,31 +82,37 @@ async function kapsoFetch<T = unknown, B = unknown>(
 export const kapsoApi = {
   broadcasts: {
     create: (data: CreateBroadcastRequest) =>
-      kapsoFetch<ApiResponse<WhatsappBroadcast>, CreateBroadcastRequest>('/whatsapp_broadcasts', {
+      kapsoFetch<ApiResponse<WhatsappBroadcast>, CreateBroadcastRequest>('/whatsapp/broadcasts', {
         method: 'POST',
         body: data,
       }),
     get: (broadcastId: string) =>
-      kapsoFetch<ApiResponse<WhatsappBroadcast>>(`/whatsapp_broadcasts/${broadcastId}`),
+      kapsoFetch<ApiResponse<WhatsappBroadcast>>(`/whatsapp/broadcasts/${broadcastId}`),
     addRecipients: (broadcastId: string, data: AddRecipientsRequest) =>
       kapsoFetch<ApiResponse<RecipientBatchResponse>, AddRecipientsRequest>(
-        `/whatsapp_broadcasts/${broadcastId}/recipients`,
+        `/whatsapp/broadcasts/${broadcastId}/recipients`,
         { method: 'POST', body: data }
       ),
     getRecipients: (broadcastId: string, page: number = 1, perPage: number = 20) =>
       kapsoFetch<ApiListResponse<WhatsappBroadcastRecipient>>(
-        `/whatsapp_broadcasts/${broadcastId}/recipients`,
+        `/whatsapp/broadcasts/${broadcastId}/recipients`,
         { params: { page, per_page: perPage } }
       ),
     send: (broadcastId: string) =>
-      kapsoFetch<ApiResponse<WhatsappBroadcast>>(`/whatsapp_broadcasts/${broadcastId}/send`, {
+      kapsoFetch<ApiResponse<WhatsappBroadcast>>(`/whatsapp/broadcasts/${broadcastId}/send`, {
         method: 'POST',
       }),
   },
   templates: {
-    list: (params?: Record<string, string | number>) =>
-      kapsoFetch<ApiListResponse<Template>>('/whatsapp_templates', { params }),
-    get: (templateId: string) =>
-      kapsoFetch<ApiResponse<Template>>(`/whatsapp_templates/${templateId}`),
+    list: (businessAccountId: string, params?: Record<string, string | number>) =>
+      kapsoFetch<ApiListResponse<Template>>(
+        `/${businessAccountId}/message_templates`,
+        { params, apiBase: 'meta' }
+      ),
+    get: (businessAccountId: string, templateId: string) =>
+      kapsoFetch<ApiResponse<Template>>(
+        `/${businessAccountId}/message_templates/${templateId}`,
+        { apiBase: 'meta' }
+      ),
   },
 };

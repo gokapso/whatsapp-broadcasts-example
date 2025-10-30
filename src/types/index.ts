@@ -1,19 +1,16 @@
 export type Template = {
   id: string;
   name: string;
-  language_code: string;
-  category: 'MARKETING' | 'UTILITY' | 'AUTHENTICATION';
-  status: 'draft' | 'submitted' | 'approved' | 'rejected' | 'disabled' | 'removed';
-  content: string;
-  parameter_count: number;
-  business_account_id?: string;
-  whatsapp_config_ids?: string[];
-  components?: TemplateComponent[];
-  metadata?: Record<string, unknown>;
-  created_at: string;
-  updated_at: string;
-  // Backward compatibility
+  language_code?: string;
   language?: string;
+  category: 'MARKETING' | 'UTILITY' | 'AUTHENTICATION';
+  status: 'APPROVED' | 'PENDING' | 'REJECTED';
+  content?: string;
+  parameter_format?: 'NAMED' | 'POSITIONAL';
+  business_account_id?: string;
+  components?: TemplateComponent[] | { components: TemplateComponent[] };
+  created_at?: string;
+  updated_at?: string;
 };
 
 export type TemplateComponent = {
@@ -23,6 +20,14 @@ export type TemplateComponent = {
   example?: {
     header_text?: string[];
     body_text?: string[][];
+    body_text_named_params?: Array<{
+      param_name: string;
+      example: string;
+    }>;
+    header_text_named_params?: Array<{
+      param_name: string;
+      example: string;
+    }>;
   };
   buttons?: TemplateButton[];
 };
@@ -40,44 +45,13 @@ export type CSVRow = {
   params: string[];
 };
 
-export type BulkSendRequest = {
-  templateName: string;
-  language: string;
-  rows: CSVRow[];
-};
-
-export type MessageStats = {
-  totalSent: number;
-  delivered: number;
-  read: number;
-  failed: number;
-  pending: number;
-};
-
-export type SendResult = {
-  phoneNumber: string;
-  success: boolean;
-  messageId?: string;
-  error?: string;
-};
-
 // Broadcast API types
 export type BasicWhatsappTemplate = {
   id: string;
   name: string;
   language_code: string;
   category: 'MARKETING' | 'UTILITY' | 'AUTHENTICATION';
-  status: 'approved' | 'pending' | 'rejected';
-};
-
-export type WhatsappBroadcastStats = {
-  total: number;
-  sent: number;
-  failed: number;
-  delivered: number;
-  read: number;
-  responded: number;
-  pending: number;
+  status: 'APPROVED' | 'PENDING' | 'REJECTED';
 };
 
 export type WhatsappBroadcast = {
@@ -88,7 +62,7 @@ export type WhatsappBroadcast = {
   completed_at: string | null;
   created_at: string;
   updated_at: string;
-  whatsapp_config_id: string;
+  phone_number_id: string | null;
   whatsapp_template: BasicWhatsappTemplate;
   total_recipients: number;
   sent_count: number;
@@ -98,7 +72,6 @@ export type WhatsappBroadcast = {
   responded_count: number;
   pending_count: number;
   response_rate: number;
-  stats: WhatsappBroadcastStats;
 };
 
 export type WhatsappBroadcastRecipient = {
@@ -133,15 +106,33 @@ export type PaginationMeta = {
 export type CreateBroadcastRequest = {
   whatsapp_broadcast: {
     name: string;
-    whatsapp_config_id: string;
+    phone_number_id: string;
     whatsapp_template_id: string;
   };
 };
 
+export type TemplateComponentParameter = {
+  type: string;
+  parameter_name?: string;
+  text?: string;
+  image?: Record<string, unknown>;
+  video?: Record<string, unknown>;
+  document?: Record<string, unknown>;
+};
+
+export type RecipientComponent = {
+  type: 'header' | 'body' | 'button';
+  sub_type?: string;
+  index?: string;
+  parameters: TemplateComponentParameter[];
+};
+
 export type AddRecipientsRequest = {
-  recipients: Array<{
-    phone_number?: string;
-    whatsapp_contact_id?: string;
-    template_parameters?: string[] | Record<string, string>;
-  }>;
+  whatsapp_broadcast: {
+    recipients: Array<{
+      phone_number?: string;
+      whatsapp_contact_id?: string;
+      components?: RecipientComponent[];
+    }>;
+  };
 };

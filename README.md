@@ -2,7 +2,7 @@
 
 Example Next.js app demonstrating Kapso's Broadcasts API for WhatsApp mass messaging campaigns.
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fgokapso%2Fwhatsapp-broadcasts-example&env=KAPSO_API_KEY,WHATSAPP_CONFIG_ID,NEXT_PUBLIC_WHATSAPP_CONFIG_ID&envDescription=Required%20Kapso%20credentials&envLink=https%3A%2F%2Fdocs.kapso.ai)
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fgokapso%2Fwhatsapp-broadcasts-example&env=KAPSO_API_KEY,PHONE_NUMBER_ID,NEXT_PUBLIC_PHONE_NUMBER_ID,BUSINESS_ACCOUNT_ID&envDescription=Required%20Kapso%20credentials&envLink=https%3A%2F%2Fdocs.kapso.ai)
 
 ## Features
 
@@ -24,7 +24,7 @@ npm install
 
 # Set up environment variables
 cp .env.example .env
-# Add your Kapso API key and WhatsApp config ID
+# Add your Kapso API key and WhatsApp phone number ID
 
 # Run development server
 npm run dev
@@ -44,8 +44,12 @@ Open [http://localhost:4000](http://localhost:4000)
 ### 2. Connect WhatsApp
 
 1. In your Kapso dashboard, go to Connected numbers and connect a WhatsApp Business account
-2. Copy the WhatsApp config UUID
-3. Copy the config UUID to your `.env` file
+2. Copy the phone number ID from your connected WhatsApp number
+3. Copy your WhatsApp Business Account ID
+4. Add both IDs to your `.env` file:
+   - `PHONE_NUMBER_ID` - Used for sending broadcasts
+   - `NEXT_PUBLIC_PHONE_NUMBER_ID` - Used for client-side display
+   - `BUSINESS_ACCOUNT_ID` - Used for fetching templates
 
 ### 3. Create templates
 

@@ -13,11 +13,11 @@ export async function POST(request: Request) {
       );
     }
 
-    const { name, whatsapp_config_id, whatsapp_template_id } = body.whatsapp_broadcast;
+    const { name, phone_number_id, whatsapp_template_id } = body.whatsapp_broadcast;
 
-    if (!name || !whatsapp_config_id || !whatsapp_template_id) {
+    if (!name || !phone_number_id || !whatsapp_template_id) {
       return NextResponse.json(
-        { error: 'Missing required fields: name, whatsapp_config_id, whatsapp_template_id' },
+        { error: 'Missing required fields: name, phone_number_id, whatsapp_template_id' },
         { status: 400 }
       );
     }

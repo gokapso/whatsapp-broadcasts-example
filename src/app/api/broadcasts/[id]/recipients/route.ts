@@ -18,14 +18,14 @@ export async function POST(
 
     const body = (await request.json()) as AddRecipientsRequest;
 
-    if (!body.recipients || !Array.isArray(body.recipients)) {
+    if (!body.whatsapp_broadcast?.recipients || !Array.isArray(body.whatsapp_broadcast.recipients)) {
       return NextResponse.json(
-        { error: 'Recipients array is required' },
+        { error: 'whatsapp_broadcast.recipients array is required' },
         { status: 400 }
       );
     }
 
-    if (body.recipients.length > 1000) {
+    if (body.whatsapp_broadcast.recipients.length > 1000) {
       return NextResponse.json(
         { error: 'Cannot add more than 1000 recipients per request' },
         { status: 422 }

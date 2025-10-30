@@ -52,24 +52,37 @@ export default function Home() {
     let positionalIndex = 1;
 
     for (const component of componentsArray) {
-      if (component.type !== 'BODY' && component.type !== 'HEADER') continue;
-
-      // Handle NAMED parameters
-      if (component.example?.body_text_named_params) {
-        for (const param of component.example.body_text_named_params) {
-          params.push({ name: param.param_name, example: param.example });
+      // Handle BODY and HEADER components
+      if (component.type === 'BODY' || component.type === 'HEADER') {
+        // Handle NAMED parameters
+        if (component.example?.body_text_named_params) {
+          for (const param of component.example.body_text_named_params) {
+            params.push({ name: param.param_name, example: param.example });
+          }
+        } else if (component.example?.header_text_named_params) {
+          for (const param of component.example.header_text_named_params) {
+            params.push({ name: param.param_name, example: param.example });
+          }
         }
-      } else if (component.example?.header_text_named_params) {
-        for (const param of component.example.header_text_named_params) {
-          params.push({ name: param.param_name, example: param.example });
+        // Handle POSITIONAL parameters
+        else if (component.example?.body_text && component.example.body_text.length > 0) {
+          const positionalParams = component.example.body_text[0] || [];
+          for (const example of positionalParams) {
+            params.push({ name: `param${positionalIndex}`, example });
+            positionalIndex++;
+          }
         }
       }
-      // Handle POSITIONAL parameters
-      else if (component.example?.body_text && component.example.body_text.length > 0) {
-        const positionalParams = component.example.body_text[0] || [];
-        for (const example of positionalParams) {
-          params.push({ name: `param${positionalIndex}`, example });
-          positionalIndex++;
+
+      // Handle BUTTONS component
+      if (component.type === 'BUTTONS' && component.buttons) {
+        for (const button of component.buttons) {
+          if (button.example && Array.isArray(button.example)) {
+            for (const example of button.example) {
+              params.push({ name: `button_param${positionalIndex}`, example });
+              positionalIndex++;
+            }
+          }
         }
       }
     }
@@ -93,75 +106,125 @@ export default function Home() {
     const examples: string[] = [];
 
     for (const component of componentsArray) {
-      // Skip non-BODY and non-HEADER components
-      if (component.type !== 'BODY' && component.type !== 'HEADER') {
-        continue;
+      // Handle BODY and HEADER components
+      if (component.type === 'BODY' || component.type === 'HEADER') {
+        // Handle NAMED parameter format (body_text_named_params)
+        if (component.example?.body_text_named_params) {
+          const namedParams = component.example.body_text_named_params;
+          for (const param of namedParams) {
+            examples.push(param.example);
+          }
+        }
+        // Handle NAMED parameter format for headers (header_text_named_params)
+        else if (component.example?.header_text_named_params) {
+          const namedParams = component.example.header_text_named_params;
+          for (const param of namedParams) {
+            examples.push(param.example);
+          }
+        }
+        // Handle POSITIONAL parameter format (body_text 2D array)
+        else if (component.example?.body_text && component.example.body_text.length > 0) {
+          // body_text is a 2D array, get the first example row
+          const positionalParams = component.example.body_text[0] || [];
+          examples.push(...positionalParams);
+        }
       }
 
-      // Handle NAMED parameter format (body_text_named_params)
-      if (component.example?.body_text_named_params) {
-        const namedParams = component.example.body_text_named_params;
-        for (const param of namedParams) {
-          examples.push(param.example);
+      // Handle BUTTONS component
+      if (component.type === 'BUTTONS' && component.buttons) {
+        for (const button of component.buttons) {
+          if (button.example && Array.isArray(button.example)) {
+            examples.push(...button.example);
+          }
         }
-      }
-      // Handle NAMED parameter format for headers (header_text_named_params)
-      else if (component.example?.header_text_named_params) {
-        const namedParams = component.example.header_text_named_params;
-        for (const param of namedParams) {
-          examples.push(param.example);
-        }
-      }
-      // Handle POSITIONAL parameter format (body_text 2D array)
-      else if (component.example?.body_text && component.example.body_text.length > 0) {
-        // body_text is a 2D array, get the first example row
-        const positionalParams = component.example.body_text[0] || [];
-        examples.push(...positionalParams);
       }
     }
 
     return examples;
   }
 
-  // Helper function to check if template uses named parameters
-  function isNamedParameterTemplate(template: Template): boolean {
-    const metadata = template.metadata as any;
-    return metadata?.whatsapp_data?.parameter_format === 'NAMED';
-  }
+  // Helper function to convert params to Meta components format
+  function convertToComponentsFormat(template: Template, params: string[]): Array<{ type: string; sub_type?: string; index?: string; parameters: Array<{ type: string; parameter_name?: string; text: string }> }> {
+    const paramInfo = getTemplateParameterInfo(template);
 
-  // Helper function to convert array params to named object
-  function convertToTemplateParameters(template: Template, params: string[]): string[] | Record<string, string> {
-    if (!isNamedParameterTemplate(template)) {
-      // Positional parameters - return as array
-      return params;
+    if (paramInfo.length === 0 || params.length === 0) {
+      return [];
     }
 
-    // Named parameters - convert to object
-    const paramInfo = getTemplateParameterInfo(template);
-    const namedParams: Record<string, string> = {};
+    // Group parameters by component type
+    const bodyParams: Array<{ type: string; parameter_name?: string; text: string }> = [];
+    const headerParams: Array<{ type: string; parameter_name?: string; text: string }> = [];
+    const buttonParams: Array<{ index: number; value: string }> = [];
 
     paramInfo.forEach((info, index) => {
-      if (index < params.length) {
-        namedParams[info.name] = params[index];
+      if (index >= params.length) return;
+
+      // Check if this is a button parameter
+      if (info.name.startsWith('button_param')) {
+        const buttonIndex = buttonParams.length;
+        buttonParams.push({ index: buttonIndex, value: params[index] });
+        return;
+      }
+
+      const param = {
+        type: 'text',
+        parameter_name: info.name,
+        text: params[index],
+      };
+
+      // Determine if this is a header or body parameter based on component type
+      const componentsArray = (template.components as any)?.components || template.components;
+      let isHeaderParam = false;
+
+      if (Array.isArray(componentsArray)) {
+        for (const comp of componentsArray) {
+          if (comp.type === 'HEADER' && comp.example?.header_text_named_params) {
+            const headerParamNames = comp.example.header_text_named_params.map((p: any) => p.param_name);
+            if (headerParamNames.includes(info.name)) {
+              isHeaderParam = true;
+              break;
+            }
+          }
+        }
+      }
+
+      if (isHeaderParam) {
+        headerParams.push(param);
+      } else {
+        bodyParams.push(param);
       }
     });
 
-    return namedParams;
+    const components = [];
+    if (headerParams.length > 0) {
+      components.push({ type: 'header', parameters: headerParams });
+    }
+    if (bodyParams.length > 0) {
+      components.push({ type: 'body', parameters: bodyParams });
+    }
+    // Add button components
+    for (const buttonParam of buttonParams) {
+      components.push({
+        type: 'button',
+        sub_type: 'url',
+        index: String(buttonParam.index),
+        parameters: [{ type: 'text', text: buttonParam.value }],
+      });
+    }
+
+    return components;
   }
 
   // Helper function to generate CSV example based on template
   function generateCSVExample(template: Template): string {
+    const paramInfo = getTemplateParameterInfo(template);
     const examples = getTemplateParameterExamples(template);
-    const paramCount = template.parameter_count || 0;
 
-    // Generate header row
-    const headers = ['phone'];
-    for (let i = 1; i <= paramCount; i++) {
-      headers.push(`param${i}`);
-    }
+    // Generate header row using actual parameter names
+    const headers = ['phone', ...paramInfo.map(p => p.name)];
 
     // Generate example rows using template examples or defaults
-    const exampleValues = examples.length > 0 ? examples : Array(paramCount).fill('value');
+    const exampleValues = examples.length > 0 ? examples : Array(paramInfo.length).fill('value');
     const row1 = ['+15551234567', ...exampleValues];
     const row2 = ['+15559876543', ...exampleValues];
 
@@ -273,9 +336,9 @@ export default function Home() {
       return;
     }
 
-    const whatsappConfigId = process.env.NEXT_PUBLIC_WHATSAPP_CONFIG_ID;
-    if (!whatsappConfigId) {
-      setError('WHATSAPP_CONFIG_ID not configured. Please add it to your .env file.');
+    const phoneNumberId = process.env.NEXT_PUBLIC_PHONE_NUMBER_ID;
+    if (!phoneNumberId) {
+      setError('PHONE_NUMBER_ID not configured. Please add it to your .env file.');
       return;
     }
 
@@ -289,7 +352,7 @@ export default function Home() {
         body: JSON.stringify({
           whatsapp_broadcast: {
             name: broadcastName,
-            whatsapp_config_id: whatsappConfigId,
+            phone_number_id: phoneNumberId,
             whatsapp_template_id: selectedTemplate.id,
           },
         }),
@@ -349,15 +412,15 @@ export default function Home() {
 
         const recipients = batch.map(row => ({
           phone_number: row.phoneNumber,
-          template_parameters: row.params.length > 0
-            ? convertToTemplateParameters(selectedTemplate, row.params)
+          components: row.params.length > 0
+            ? convertToComponentsFormat(selectedTemplate, row.params)
             : undefined,
         }));
 
         const response = await fetch(`/api/broadcasts/${currentBroadcast.id}/recipients`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ recipients }),
+          body: JSON.stringify({ whatsapp_broadcast: { recipients } }),
         });
 
         if (!response.ok) {
@@ -529,7 +592,7 @@ export default function Home() {
                     <SelectContent>
                       {templates.map((template) => (
                         <SelectItem key={template.id} value={template.id}>
-                          {template.name} ({template.language_code})
+                          {template.name} ({template.language_code || template.language})
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -543,7 +606,7 @@ export default function Home() {
                       </div>
                       <div className="flex justify-between">
                         <span className="font-semibold">Language:</span>
-                        <span>{selectedTemplate.language_code}</span>
+                        <span>{selectedTemplate.language_code || selectedTemplate.language}</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="font-semibold">Category:</span>
@@ -551,7 +614,7 @@ export default function Home() {
                       </div>
                       <div className="flex justify-between">
                         <span className="font-semibold">Parameters:</span>
-                        <span>{selectedTemplate.parameter_count}</span>
+                        <span>{getTemplateParameterInfo(selectedTemplate).length}</span>
                       </div>
                       {selectedTemplate.content && (
                         <div className="pt-2 border-t">
@@ -559,9 +622,9 @@ export default function Home() {
                           <p className="text-sm whitespace-pre-wrap">{selectedTemplate.content}</p>
                         </div>
                       )}
-                      {selectedTemplate.parameter_count > 0 && (
+                      {getTemplateParameterInfo(selectedTemplate).length > 0 && (
                         <div className="pt-2 border-t">
-                          <p className="font-semibold mb-1">Required parameters: {selectedTemplate.parameter_count}</p>
+                          <p className="font-semibold mb-1">Required parameters: {getTemplateParameterInfo(selectedTemplate).length}</p>
                           <div className="text-sm bg-background p-2 rounded font-mono">
                             {getTemplateParameterInfo(selectedTemplate).length > 0 ? (
                               <>

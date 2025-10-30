@@ -3,21 +3,16 @@ import { kapsoApi } from '@/lib/kapso-api';
 
 export async function GET() {
   try {
-    const whatsappConfigId = process.env.WHATSAPP_CONFIG_ID;
+    const businessAccountId = process.env.BUSINESS_ACCOUNT_ID;
 
-    if (!whatsappConfigId) {
+    if (!businessAccountId) {
       return NextResponse.json(
-        { error: 'WHATSAPP_CONFIG_ID not set in environment variables' },
+        { error: 'BUSINESS_ACCOUNT_ID not set in environment variables' },
         { status: 500 }
       );
     }
 
-    // Fetch templates from Kapso API filtered by config and approved status
-    const templates = await kapsoApi.templates.list({
-      whatsapp_config_id: whatsappConfigId,
-      'q[status_eq]': 'approved',
-      per_page: 100,
-    });
+    const templates = await kapsoApi.templates.list(businessAccountId);
 
     return NextResponse.json(templates);
   } catch (error) {
